@@ -67,9 +67,15 @@ class Products with ChangeNotifier {
   //   notifyListeners();
   // }
 
+  final String authToken;
+
+  Products(this.authToken, this._items);
+
+
+
   Future<void> fetchAndSetProducts() async {
     final url = Uri.parse(
-        'https://flutter-project-fa223-default-rtdb.firebaseio.com/products.json');
+        'https://flutter-project-fa223-default-rtdb.firebaseio.com/products.json?auth=$authToken');
     try {
       final response = await http.get(url);
       final extractedData = json.decode(response.body) as Map<String, dynamic>;
@@ -152,7 +158,6 @@ class Products with ChangeNotifier {
       notifyListeners();
       throw HttpException("Could not delete product.");
     }
-      existingProduct = null;
-
+    existingProduct = null;
   }
 }
