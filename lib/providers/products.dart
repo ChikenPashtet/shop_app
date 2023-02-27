@@ -42,13 +42,6 @@ class Products with ChangeNotifier {
 
   // var _showFavoritesOnly = false;
 
-  List<Product> get items {
-    // if (_showFavoritesOnly) {
-    //   return _items.where((prodItem) => prodItem.isFavorite).toList();
-    // }
-    return [..._items];
-  }
-
   List<Product> get favoriteItems {
     return _items.where((prodItem) => prodItem.isFavorite).toList();
   }
@@ -57,7 +50,7 @@ class Products with ChangeNotifier {
     return _items.firstWhere((prod) => prod.id == id);
   }
 
-  // void showFavoritesOnly() {
+  List<Product> get items => _items; // void showFavoritesOnly() {
   //   _showFavoritesOnly = true;
   //   notifyListeners();
   // }
@@ -68,17 +61,30 @@ class Products with ChangeNotifier {
   // }
 
   final String authToken;
+  final String userId;
 
-  Products(this.authToken, this._items);
+  Products({
+    this.authToken = '',
+    this.userId = '',
+    List<Product> items = const [],
+  }) : _items = items;
 
-
-
-  Future<void> fetchAndSetProducts() async {
-    final url = Uri.parse(
-        'https://flutter-project-fa223-default-rtdb.firebaseio.com/products.json?auth=$authToken');
+  Future<void> fetchAndSetProducts([bool filterByUser = false]) async {
+    final filterString =
+        filterByUser ? 'orderBy="creatorId"&equalTo="$userId"' : '';
+    var url = Uri.parse(
+        'https://flutter-project-fa223-default-rtdb.firebaseio.com/products.json?auth=$authToken&$filterString');
     try {
       final response = await http.get(url);
       final extractedData = json.decode(response.body) as Map<String, dynamic>;
+      if (extractedData == null) {
+        return;
+      }
+      url = Uri.parse(
+          'https://flutter-project-fa223-default-rtdb.firebaseio.com/userFavorites/$userId.json?auth=$authToken');
+      final favoritePesponse = await http.get(url);
+      final favoriteData = json.decode(favoritePesponse.body);
+
       final List<Product> loadedProducts = [];
       extractedData.forEach((key, value) {
         loadedProducts.add(Product(
@@ -87,7 +93,8 @@ class Products with ChangeNotifier {
             description: value['description'],
             price: value['price'],
             imageUrl: value['imageUrl'],
-            isFavorite: value['isFavorite']));
+            isFavorite:
+                favoriteData == null ? false : favoriteData[value] ?? false));
       });
       _items = loadedProducts;
       notifyListeners();
@@ -99,7 +106,7 @@ class Products with ChangeNotifier {
   Future<void> addProduct(Product product) async {
     try {
       final url = Uri.parse(
-          'https://flutter-project-fa223-default-rtdb.firebaseio.com/products.json');
+          'https://flutter-project-fa223-default-rtdb.firebaseio.com/products.json?auth=$authToken');
       final response = await http.post(
         url,
         body: json.encode({
@@ -107,7 +114,7 @@ class Products with ChangeNotifier {
           'description': product.description,
           'imageUrl': product.imageUrl,
           'price': product.price,
-          'isFavorite': product.isFavorite,
+          'creatorId': userId,
         }),
       );
       final newProduct = Product(
@@ -129,7 +136,7 @@ class Products with ChangeNotifier {
     final prodIndex = _items.indexWhere((prod) => prod.id == id);
     if (prodIndex >= 0) {
       final url = Uri.parse(
-          'https://flutter-project-fa223-default-rtdb.firebaseio.com/products/$id.json');
+          'https://flutter-project-fa223-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken');
       await http.patch(url,
           body: json.encode({
             'title': newProduct.title,
@@ -147,7 +154,7 @@ class Products with ChangeNotifier {
 
   Future<void> deleteProduct(String id) async {
     final url = Uri.parse(
-        'https://flutter-project-fa223-default-rtdb.firebaseio.com/products/$id.json');
+        'https://flutter-project-fa223-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken');
     final existingProductIndex = _items.indexWhere((prod) => prod.id == id);
     Product? existingProduct = _items[existingProductIndex];
     _items.removeAt(existingProductIndex);
